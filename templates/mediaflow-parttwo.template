@@ -1,0 +1,177 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  EKS nodes (AMI family: AmazonLinux2, SSH access: false, private networking:
+  false) [created and managed by eksctl]
+Mappings:
+  ServicePrincipalPartitionMap:
+    aws:
+      EC2: ec2.amazonaws.com
+      EKS: eks.amazonaws.com
+      EKSFargatePods: eks-fargate-pods.amazonaws.com
+    aws-cn:
+      EC2: ec2.amazonaws.com.cn
+      EKS: eks.amazonaws.com
+      EKSFargatePods: eks-fargate-pods.amazonaws.com
+    aws-us-gov:
+      EC2: ec2.amazonaws.com
+      EKS: eks.amazonaws.com
+      EKSFargatePods: eks-fargate-pods.amazonaws.com
+Resources:
+  EgressInterCluster:
+    Type: 'AWS::EC2::SecurityGroupEgress'
+    Properties:
+      Description: >-
+        Allow control plane to communicate with worker nodes in group
+        ng-mediaflow (kubelet and workload TCP ports)
+      DestinationSecurityGroupId: !Ref SG
+      FromPort: 1025
+      GroupId: !ImportValue 'eksctl-mediaflow-cluster::SecurityGroup'
+      IpProtocol: tcp
+      ToPort: 65535
+  EgressInterClusterAPI:
+    Type: 'AWS::EC2::SecurityGroupEgress'
+    Properties:
+      Description: >-
+        Allow control plane to communicate with worker nodes in group
+        ng-mediaflow (workloads using HTTPS port, commonly used with extension
+        API servers)
+      DestinationSecurityGroupId: !Ref SG
+      FromPort: 443
+      GroupId: !ImportValue 'eksctl-mediaflow-cluster::SecurityGroup'
+      IpProtocol: tcp
+      ToPort: 443
+  IngressInterCluster:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: >-
+        Allow worker nodes in group ng-mediaflow to communicate with control
+        plane (kubelet and workload TCP ports)
+      FromPort: 1025
+      GroupId: !Ref SG
+      IpProtocol: tcp
+      SourceSecurityGroupId: !ImportValue 'eksctl-mediaflow-cluster::SecurityGroup'
+      ToPort: 65535
+  IngressInterClusterAPI:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: >-
+        Allow worker nodes in group ng-mediaflow to communicate with control
+        plane (workloads using HTTPS port, commonly used with extension API
+        servers)
+      FromPort: 443
+      GroupId: !Ref SG
+      IpProtocol: tcp
+      SourceSecurityGroupId: !ImportValue 'eksctl-mediaflow-cluster::SecurityGroup'
+      ToPort: 443
+  IngressInterClusterCP:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: >-
+        Allow control plane to receive API requests from worker nodes in group
+        ng-mediaflow
+      FromPort: 443
+      GroupId: !ImportValue 'eksctl-mediaflow-cluster::SecurityGroup'
+      IpProtocol: tcp
+      SourceSecurityGroupId: !Ref SG
+      ToPort: 443
+  NodeGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:
+      DesiredCapacity: '3'
+      LaunchTemplate:
+        LaunchTemplateName: !Sub '${AWS::StackName}'
+        Version: !GetAtt NodeGroupLaunchTemplate.LatestVersionNumber
+      MaxSize: '4'
+      MinSize: '2'
+      Tags:
+        - Key: Name
+          PropagateAtLaunch: 'true'
+          Value: mediaflow-ng-mediaflow-Node
+        - Key: kubernetes.io/cluster/mediaflow
+          PropagateAtLaunch: 'true'
+          Value: owned
+      VPCZoneIdentifier: !Split 
+        - ','
+        - !ImportValue 'eksctl-mediaflow-cluster::SubnetsPublic'
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MaxBatchSize: '1'
+        MinInstancesInService: '0'
+  NodeGroupLaunchTemplate:
+    Type: 'AWS::EC2::LaunchTemplate'
+    Properties:
+      LaunchTemplateData:
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              Encrypted: false
+              VolumeSize: 80
+              VolumeType: gp2
+        IamInstanceProfile:
+          Arn: !GetAtt NodeInstanceProfile.Arn
+        ImageId: ami-0bc87a8f0db332ec8
+        InstanceType: t2.small
+        MetadataOptions:
+          HttpPutResponseHopLimit: 2
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            Groups:
+              - !ImportValue 'eksctl-mediaflow-cluster::SharedNodeSecurityGroup'
+              - !Ref SG
+        UserData: >-
+          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
+      LaunchTemplateName: !Sub '${AWS::StackName}'
+  NodeInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref NodeInstanceRole
+  NodeInstanceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service:
+                - !FindInMap 
+                  - ServicePrincipalPartitionMap
+                  - !Ref 'AWS::Partition'
+                  - EC2
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - !Sub >-
+          arn:${AWS::Partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy'
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonEKS_CNI_Policy'
+      Path: /
+  SG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: >-
+        Communication between the control plane and worker nodes in group
+        ng-mediaflow
+      Tags:
+        - Key: kubernetes.io/cluster/mediaflow
+          Value: owned
+        - Key: Name
+          Value: !Sub '${AWS::StackName}/SG'
+      VpcId: !ImportValue 'eksctl-mediaflow-cluster::VPC'
+Outputs:
+  FeatureLocalSecurityGroup:
+    Value: true
+  FeaturePrivateNetworking:
+    Value: false
+  FeatureSharedSecurityGroup:
+    Value: true
+  InstanceProfileARN:
+    Export:
+      Name: !Sub '${AWS::StackName}::InstanceProfileARN'
+    Value: !GetAtt NodeInstanceProfile.Arn
+  InstanceRoleARN:
+    Export:
+      Name: !Sub '${AWS::StackName}::InstanceRoleARN'
+    Value: !GetAtt NodeInstanceRole.Arn
