@@ -9,7 +9,7 @@ stack:
   # Define stack input parameters.
   #
   parameters:
-    KeyPairName: 'bluefineng'
+    KeyPairName: 'cf-aws-provision'
 
   #
   # Define stack capabilities required.
@@ -22,3 +22,4 @@ stack:
   #
   tags:
     app: 'eks-cluster'
+    env: 'development'

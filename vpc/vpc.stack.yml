@@ -11,7 +11,7 @@ Parameters:
     AllowedValues:
     - 'true'
     - 'false'
-    Default: 'false'
+    Default: 'true'
     Description: Set to true to create a network ACL protected subnet in each Availability
       Zone. If false, the CIDR parameters for those subnets will be ignored. If true,
       it also requires that the 'Create private subnets' parameter is also true to
@@ -21,7 +21,7 @@ Parameters:
     AllowedValues:
     - 'true'
     - 'false'
-    Default: 'false'
+    Default: 'true'
     Description: Set to false to create only public subnets. If false, the CIDR parameters
       for ALL private subnets will be ignored.
     Type: String
@@ -30,6 +30,7 @@ Parameters:
       instance after it launches. This is used only if the region does not support
       NAT gateways.
     Type: AWS::EC2::KeyPair::KeyName
+    Default: 'cf-infra-provision'
   NATInstanceType:
     AllowedValues:
     - t2.nano
