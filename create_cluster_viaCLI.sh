@@ -5,10 +5,11 @@
 #
 CLUSTER=mediaflow
 NODEGROUP=mediaflow
+NGNAME=development
 IAMID=eks-cladmin
 FARGATEID=eks-fargate
-REGION=us-east-1
-DEBUG=3
+REGION=us-east-2
+DEBUG=4
 NODETYPE=t2.small
 STARTWITH=3
 MIN=2
@@ -27,23 +28,44 @@ aws configure
 
 printf "Generate the key for the env \n"
 ./mk_keys.sh
+
 printf "Create the $CLUSTER cluster \n"
-eksctl create cluster --version 1.17 --name=$CLUSTER -v$DEBUG  --nodegroup-name=mediaflow -t $NODETYPE -N $STARTWITH -m $MIN -M $MAX
+eksctl create cluster --version 1.17 --name=$CLUSTER -v$DEBUG  --nodegroup-name=$NGNAME -t $NODETYPE -N $STARTWITH -m $MIN -M $MAX
 
 
-printf "Enable Monitoringand Logging (temporarily. Eval costs) \n"
-#eksctl utils update-cluster-logging --region=$REGION --cluster=$CLUSTER
+printf "Enable Monitoringand Logging (temporarily. Eval costs. Check CloudWatch) \n"
 
 eksctl utils update-cluster-logging --region=$REGION --cluster=$CLUSTER --enable-types scheduler --approve  
 eksctl utils update-cluster-logging --region=$REGION --cluster=$CLUSTER --enable-types controllerManager --approve  
 
 printf "Create the IAM ID \n"
-eksctl create iamserviceaccount $IAMID 
+eksctl create iamserviceaccount $IAMID --name=$CLUSTER 
 
 printf "Create the IAM ID \n"
-eksctl create fargateprofile $FARGATEID
+eksctl create fargateprofile $FARGATEID --name=$CLUSTER
+
+
 printf "Create the EBS volumes for the environment \n"
-../tt-complete/scripts/create-ebs-volumes.sh
+#../tt-complete/scripts/create-ebs-volumes.sh
+az=us-east-1a 
+voltypeIO1=io1
+voltypeST1=st1
+voltypeGP2=gp2
+voltypeLOG=standard
+sizeIO1=10
+sizeST1=500
+sizeGP2=20
+sizeLOG=50
+
+aws ec2 create-volume --availability-zone $az --size $sizeIO1 --volume-type $voltypeIO1
+aws ec2 create-volume --availability-zone $az --size $sizeST1 --volume-type $voltypeST1
+aws ec2 create-volume --availability-zone $az --size $sizeGP2 --volume-type $voltypeGP2
+aws ec2 create-volume --availability-zone $az --size $sizeLOG --volume-type $voltypeLOG
+
+#../tt-complete/scripts/create_s3bucket.sh
+aws s3 mb s3://mediaflow-logdata --region $region 
+aws s3 mb s3://logdatatopersist --region $region
+aws s3 mb s3://logdatatopersist --region $region
 
 #printf "Create nodegroup $NODEGROUP #NOT ALLOWED
 #eksctl create nodegroup  $NODEGROUP"
