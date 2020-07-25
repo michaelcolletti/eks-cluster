@@ -6,10 +6,10 @@
 CLUSTER=mediaflow
 NODEGROUP=mediaflow
 NGNAME=development
-IAMID=eks-cladmin
-FARGATEID=eks-fargate
-REGION=us-east-2
-DEBUG=4
+IAMID=mediaflow-cladmin
+FARGATEID=mediaflow-fargate
+export REGION=us-east-1
+DEBUG=3
 NODETYPE=t2.small
 STARTWITH=3
 MIN=2
@@ -39,15 +39,15 @@ eksctl utils update-cluster-logging --region=$REGION --cluster=$CLUSTER --enable
 eksctl utils update-cluster-logging --region=$REGION --cluster=$CLUSTER --enable-types controllerManager --approve  
 
 printf "Create the IAM ID \n"
-eksctl create iamserviceaccount $IAMID --name=$CLUSTER 
+eksctl create iamserviceaccount $IAMID --cluster=$CLUSTER 
 
 printf "Create the IAM ID \n"
-eksctl create fargateprofile $FARGATEID --name=$CLUSTER
+eksctl create fargateprofile $FARGATEID --cluster=$CLUSTER
 
 
 printf "Create the EBS volumes for the environment \n"
 #../tt-complete/scripts/create-ebs-volumes.sh
-az=us-east-1a 
+az=$REGION
 voltypeIO1=io1
 voltypeST1=st1
 voltypeGP2=gp2
@@ -63,9 +63,10 @@ aws ec2 create-volume --availability-zone $az --size $sizeGP2 --volume-type $vol
 aws ec2 create-volume --availability-zone $az --size $sizeLOG --volume-type $voltypeLOG
 
 #../tt-complete/scripts/create_s3bucket.sh
-aws s3 mb s3://mediaflow-logdata --region $region 
-aws s3 mb s3://logdatatopersist --region $region
-aws s3 mb s3://logdatatopersist --region $region
+aws s3 mb s3://mediaflow-logdata --region $REGION 
+aws s3 mb s3://mediaflow-appdata --region $REGION
+aws s3 mb s3://mediaflow-templates --region $REGION
+aws s3 ls
 
 #printf "Create nodegroup $NODEGROUP #NOT ALLOWED
 #eksctl create nodegroup  $NODEGROUP"
