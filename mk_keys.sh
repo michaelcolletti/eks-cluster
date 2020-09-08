@@ -5,12 +5,12 @@
 KEYPAIRNAME=cf-infra-provision
 KEYPEMOUT=${KEYPAIRNAME}.pem
 
-rm -f $HOME/.aws/$KEYPEMOUT 
+#rm -f $HOME/.aws/$KEYPEMOUT 2>/dev/null
 # gen public key 
-ssh-keygen -t rsa -C "$KEYPAIRNAME" -f ~/.ssh/$KEYPAIRNAME 
-aws ec2 import-key-pair --key-name "$KEYPAIRNAME" --public-key-material fileb://~/.ssh/${KEYPAIRNAME}.pub
+ssh-keygen -t rsa -C "$KEYPAIRNAME" -f ~/.ssh/$KEYPAIRNAME 2>/dev/null
+aws ec2 import-key-pair --key-name "$KEYPAIRNAME" --public-key-material fileb://~/.ssh/${KEYPAIRNAME}.pub 2>/dev/null
 #
-aws ec2 create-key-pair --key-name $KEYPAIRNAME --query 'KeyMaterial' --output text > $HOME/.aws/$KEYPEMOUT
+#aws ec2 create-key-pair --key-name $KEYPAIRNAME --query 'KeyMaterial' --output text > $HOME/.aws/$KEYPEMOUT 2>/dev/null
 chmod 400 $HOME/.aws/$KEYPEMOUT
 
 
